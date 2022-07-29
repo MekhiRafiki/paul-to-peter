@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import complexUserGraph from './cash_graph/complex_user.js';
 import mockUserGraph from './cash_graph/mock_user.js';
 import blankGraph from './cash_graph/blank.js';
+import {getUpToDateGraph, publishGraph} from './cash_graph/main.js';
 import Button from '@mui/material/Button';
 
 import NodeQuickView from './components/NodeQuickView';
@@ -14,7 +15,6 @@ import MenuItem from '@mui/material/MenuItem';
 import FormHelperText from '@mui/material/FormHelperText';
 import FormControl from '@mui/material/FormControl';
 import { InputLabel } from '@mui/material';
-
 
 
 const graphDisplayStyle = {
@@ -51,6 +51,7 @@ function App() {
   const [refreshGraphToggle, setRefreshGraphToggle] = useState(true);
   const [focusNode, setFocusNode] = useState({});
   const [isLoading, setLoading] = useState(true);
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [showGraph, seeGraphView] = useState(false);
   const [currentCategory, setCurrentCategory] = useState('All');
   const [displayedNodes, setDisplayedNodes] = useState({});
@@ -66,7 +67,7 @@ function App() {
   /**Loads the data from backend (which doesnt exist today) */
   useEffect(() => {
     console.log('Effect Executing');
-    setStatesWithGraph(mockUserGraph)
+    setStatesWithGraph(blankGraph)
     setLoading(false);
   }, []);
 
@@ -74,9 +75,12 @@ function App() {
    *  TODO(mjones): Change to dynamically load these values.
   */
   const AvailableGraphs = {}
-  AvailableGraphs[mockUserGraph.graph_id]= mockUserGraph
-  AvailableGraphs[complexUserGraph.graph_id]= complexUserGraph
-  AvailableGraphs[blankGraph.graph_id]= blankGraph
+  function getUpdatedGraph(graph){
+    AvailableGraphs[graph.graph_id] = getUpToDateGraph(graph);
+  }
+  getUpdatedGraph(mockUserGraph);
+  getUpdatedGraph(complexUserGraph);
+  getUpdatedGraph(blankGraph);
 
   /**Toggle between available graphs */
   function changeDisplayedGraph(e){
@@ -84,6 +88,12 @@ function App() {
     console.log(newGraph)
     setStatesWithGraph(newGraph)
   }
+
+  /**Publish Graph to persistent storage */
+  function SaveGraph(graph) {
+    publishGraph(graph);
+    setUnsavedChanges(false);
+  };
 
   /**Handle a node focus event. */
   function handleNodeFocusClick(node) {
@@ -95,6 +105,7 @@ function App() {
   /**Adds a new node to the graph */
   function addNodeFunction(name, type, current_balance){
     data.add_node_to_graph(name, type, current_balance)
+    setUnsavedChanges(true);
   }
 
   /**Adds a new edge to the graph. */
@@ -104,6 +115,7 @@ function App() {
     console.log(destinationID)
     data.add_new_edge_to_graph(sourceID, destinationID, amount)
     setRefreshGraphToggle(!refreshGraphToggle);
+    setUnsavedChanges(true);
   }
 
   /**Updates an existing edge in the graph */
@@ -112,6 +124,7 @@ function App() {
     console.log(amount);
     data.update_edge(edge_id, amount);
     setRefreshGraphToggle(!refreshGraphToggle);
+    setUnsavedChanges(true);
   }
 
   /**Removes an edge form the graph */
@@ -119,6 +132,7 @@ function App() {
     data.remove_edge(edge_id);
     setData(data);
     setRefreshGraphToggle(!refreshGraphToggle);
+    setUnsavedChanges(true);
   }
 
   /**Filter the Nodes displayed on the screen by category. */
@@ -159,6 +173,12 @@ function App() {
               })
             }
       </Select>
+      {(unsavedChanges) ? 
+        <Button variant="outlined" onClick={()=>SaveGraph(data)}>
+          Publish Changes.
+        </Button>:
+        <></>
+      }
     </FormControl>
     </div>
 

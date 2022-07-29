@@ -2,6 +2,7 @@ const default_user_id = 'DefaultUser';
 const DEFAULT_NODE_TYPES = ['User', 'Investment', 'Expense', 'Savings', 'Income Source', 'All']
 
 export class Graph {
+    /**Creates a new Cash Graph object with the associated user_id. */
     constructor(graphID=default_user_id) {
         this.nodes = {};
         this.edges = {};
@@ -10,7 +11,18 @@ export class Graph {
         this.node_types = DEFAULT_NODE_TYPES;
         this.graph_id = graphID
     }
+    /**Creates a Cash Graph from an encoding of raw data. */
+    static ParseFromEncoding(encoding) {
+        let newGraph = new Graph(encoding.graph_id)
+        newGraph.nodes = encoding.nodes
+        newGraph.edges = encoding.edges
+        newGraph.edges_outgoing_index = encoding.edges_outgoing_index 
+        newGraph.edges_incoming_index = encoding.edges_incoming_index;
+        newGraph.node_types = encoding.node_types;
+        return newGraph;
+    }
 
+    /**Data modification functions (CRUD) */
     get_nodes() {
         let raw_nodes = [];
         for (let node_id in this.nodes) {
@@ -102,7 +114,6 @@ export class Graph {
     get_outgoing_edges(node_id) {
         return this.edges_outgoing_index[node_id];
     }
-
 };
 
 export class Edge {
@@ -177,5 +188,40 @@ export class IncomeSource extends Node {
         super(name, DEFAULT_NODE_TYPES[4]);
         let income = new Edge(this.id, dest_id, amount)
     }
+};
+
+/**Persistent Storage functions, today relies on LocalStorage. */
+function encode_data(graph){
+    const encoding = {
+        nodes: graph.nodes,
+        edges: graph.edges,
+        edges_outgoing_index: graph.edges_outgoing_index,
+        edges_incoming_index: graph.edges_incoming_index,
+        node_types: graph.node_types,
+        graph_id: graph.graph_id
+    }
+    console.log(encoding);
+    return encoding;
+}
+
+export function publishGraph(graph) {
+    console.log('Publishing Graph ' + graph.graph_id)
+    window.localStorage.setItem(
+        graph.graph_id,
+        JSON.stringify(encode_data(graph))
+    );
+};
+
+export function getUpToDateGraph(graph) {
+    let persistent_storage_version = window.localStorage.getItem(graph.graph_id)
+    if (persistent_storage_version != undefined) {
+        console.log('Found version in LocalStorage.')
+        let freshGraph = Graph.ParseFromEncoding(JSON.parse(persistent_storage_version));
+        console.log(freshGraph);
+        return freshGraph;
+    }
+    console.log('Default Graph Value.')
+    return graph;
+    
 };
 
